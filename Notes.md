@@ -1,16 +1,3 @@
-# What Gabe wants in a DataEngineer
-Langchain, important to Gabe
-
-dependants
-
-Ci/Cd pipelines
-
-snowflake
-
-building tables
-
-apis
-
 # Project:
 streamlit
 
