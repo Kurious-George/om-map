@@ -38,5 +38,12 @@ put through a lot of testing
 
 Done by Sunday evening EST
 
+# Additional features
+search bar
+
+relevant search results drop down thing as type
+
+marker color key, different for each type
+
 # Ask Brian questions if needed:
 make sure generated OMs look legit
