@@ -59,7 +59,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 STARWOOD_LOGO_URL = (
-    "https://www.starwoodcapital.com/wp-content/themes/starwood/images/scg-logo.svg"
+    "StarwoodCapitalLogo.svg"
 )
 # Conservative corporate navy palette. Adjust to the official brand guide when
 # available — these three variables drive every branded accent in the app.
