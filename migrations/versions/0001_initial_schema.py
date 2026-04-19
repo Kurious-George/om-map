@@ -10,6 +10,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 revision: str = "0001_initial"
 down_revision: Union[str, None] = None
@@ -17,10 +18,7 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-# Enum types are created explicitly here so downgrade() can drop them cleanly.
-# When referenced in the table DDL below we pass create_type=False so SQLAlchemy
-# does not try to create them a second time.
-_building_type = sa.Enum(
+_BUILDING_TYPE_VALUES = (
     "office",
     "residential",
     "retail",
@@ -28,23 +26,27 @@ _building_type = sa.Enum(
     "mixed_use",
     "hospitality",
     "multifamily",
-    name="building_type",
 )
-_extraction_status = sa.Enum(
-    "pending", "success", "failed",
-    name="extraction_status",
-)
-_geocode_status = sa.Enum(
-    "pending", "success", "failed", "skipped",
-    name="geocode_status",
-)
+_EXTRACTION_STATUS_VALUES = ("pending", "success", "failed")
+_GEOCODE_STATUS_VALUES = ("pending", "success", "failed", "skipped")
 
 
 def upgrade() -> None:
     bind = op.get_bind()
-    _building_type.create(bind, checkfirst=True)
-    _extraction_status.create(bind, checkfirst=True)
-    _geocode_status.create(bind, checkfirst=True)
+
+    # Create enum types explicitly and idempotently. The column definitions
+    # below use `create_type=False` so `op.create_table` does not try to
+    # recreate them (`sa.Enum`'s create_type arg is unreliable across
+    # SQLAlchemy versions; `postgresql.ENUM` honors it correctly).
+    postgresql.ENUM(*_BUILDING_TYPE_VALUES, name="building_type").create(
+        bind, checkfirst=True
+    )
+    postgresql.ENUM(*_EXTRACTION_STATUS_VALUES, name="extraction_status").create(
+        bind, checkfirst=True
+    )
+    postgresql.ENUM(*_GEOCODE_STATUS_VALUES, name="geocode_status").create(
+        bind, checkfirst=True
+    )
 
     op.create_table(
         "properties",
@@ -56,14 +58,8 @@ def upgrade() -> None:
         sa.Column("address", sa.String(length=512), nullable=True),
         sa.Column(
             "building_type",
-            sa.Enum(
-                "office",
-                "residential",
-                "retail",
-                "industrial",
-                "mixed_use",
-                "hospitality",
-                "multifamily",
+            postgresql.ENUM(
+                *_BUILDING_TYPE_VALUES,
                 name="building_type",
                 create_type=False,
             ),
@@ -74,8 +70,8 @@ def upgrade() -> None:
         sa.Column("longitude", sa.Float(), nullable=True),
         sa.Column(
             "extraction_status",
-            sa.Enum(
-                "pending", "success", "failed",
+            postgresql.ENUM(
+                *_EXTRACTION_STATUS_VALUES,
                 name="extraction_status",
                 create_type=False,
             ),
@@ -85,8 +81,8 @@ def upgrade() -> None:
         sa.Column("extraction_error", sa.Text(), nullable=True),
         sa.Column(
             "geocode_status",
-            sa.Enum(
-                "pending", "success", "failed", "skipped",
+            postgresql.ENUM(
+                *_GEOCODE_STATUS_VALUES,
                 name="geocode_status",
                 create_type=False,
             ),
@@ -136,6 +132,12 @@ def downgrade() -> None:
     op.drop_table("properties")
 
     bind = op.get_bind()
-    _geocode_status.drop(bind, checkfirst=True)
-    _extraction_status.drop(bind, checkfirst=True)
-    _building_type.drop(bind, checkfirst=True)
+    postgresql.ENUM(*_GEOCODE_STATUS_VALUES, name="geocode_status").drop(
+        bind, checkfirst=True
+    )
+    postgresql.ENUM(*_EXTRACTION_STATUS_VALUES, name="extraction_status").drop(
+        bind, checkfirst=True
+    )
+    postgresql.ENUM(*_BUILDING_TYPE_VALUES, name="building_type").drop(
+        bind, checkfirst=True
+    )

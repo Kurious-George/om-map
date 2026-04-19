@@ -58,7 +58,12 @@ logger = logging.getLogger(__name__)
 # Branding
 # ---------------------------------------------------------------------------
 
+# Browser-visible URL served by Streamlit's static-file serving; used inside
+# raw HTML blocks where the value lands in an <img src="..."> attribute.
 STARWOOD_LOGO_URL = "app/static/StarwoodCapitalLogo.svg"
+# Filesystem path (relative to the app working directory) used by st.image(),
+# which reads bytes server-side rather than fetching a URL.
+STARWOOD_LOGO_PATH = "static/StarwoodCapitalLogo.svg"
 # Conservative corporate navy palette. Adjust to the official brand guide when
 # available — these three variables drive every branded accent in the app.
 BRAND_NAVY = "#0F2544"
@@ -301,7 +306,7 @@ def _soft_delete(property_id: int) -> None:
 
 def _render_sidebar() -> None:
     with st.sidebar:
-        st.image(STARWOOD_LOGO_URL, width=160)
+        st.image(STARWOOD_LOGO_PATH, width=160)
         st.markdown("&nbsp;", unsafe_allow_html=True)
         user_selector()
         st.divider()
