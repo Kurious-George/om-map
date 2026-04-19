@@ -35,6 +35,9 @@ services:
       # DefaultAzureCredential picks up AzureCliCredential inside the container.
       AZURE_CONFIG_DIR: /home/app/.azure
     volumes:
+      # Mount the host working tree over the baked-in code so `.py` edits
+      # take effect without rebuilding the image. Remove for prod.
+      - .:/home/app/app
       - ${HOME}/.azure:/home/app/.azure:ro
     depends_on:
       db:
