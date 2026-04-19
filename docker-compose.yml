@@ -1,0 +1,44 @@
+# Local dev stack. Prod builds this same image but points DATABASE_URL at the
+# managed Azure Database for PostgreSQL and drops the `db` service entirely.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: starwood_om_map
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d starwood_om_map"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/starwood_om_map
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+      AZURE_STORAGE_ACCOUNT: ${AZURE_STORAGE_ACCOUNT}
+      AZURE_BLOB_CONTAINER: ${AZURE_BLOB_CONTAINER:-om-pdfs}
+      APP_USERS: ${APP_USERS}
+      # For local Azure Blob access, mount your host `az login` cache so
+      # DefaultAzureCredential picks up AzureCliCredential inside the container.
+      AZURE_CONFIG_DIR: /home/app/.azure
+    volumes:
+      - ${HOME}/.azure:/home/app/.azure:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

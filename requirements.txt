@@ -1,0 +1,33 @@
+# Pin within the minor version so patch updates come in naturally but we
+# don't get surprised by breaking changes. After the first successful install,
+# run `pip freeze > requirements.lock` if you want a fully-locked manifest
+# for reproducible builds.
+
+# Web framework
+streamlit~=1.40.0
+streamlit-folium~=0.23.0
+
+# Database
+SQLAlchemy~=2.0.35
+alembic~=1.14.0
+psycopg2-binary~=2.9.10
+
+# Config
+python-dotenv~=1.0.1
+
+# Claude + PDF preflight
+anthropic~=0.39.0
+pypdf~=5.1.0
+
+# Geocoding
+googlemaps~=4.10.0
+
+# Azure Blob
+azure-storage-blob~=12.24.0
+azure-identity~=1.19.0
+
+# Map
+folium~=0.18.0
+
+# Data
+pandas~=2.2.3
