@@ -4,13 +4,13 @@
 # for reproducible builds.
 
 # Web framework
-streamlit~=1.40.0
-streamlit-folium~=0.23.0
+streamlit~=1.40.2
+streamlit-folium~=0.23.2
 
 # Database
-SQLAlchemy~=2.0.35
-alembic~=1.14.0
-psycopg2-binary~=2.9.10
+SQLAlchemy~=2.0.49
+alembic~=1.14.1
+psycopg2-binary~=2.9.11
 
 # Config
 python-dotenv~=1.0.1
@@ -23,7 +23,7 @@ pypdf~=5.1.0
 googlemaps~=4.10.0
 
 # Azure Blob
-azure-storage-blob~=12.24.0
+azure-storage-blob~=12.24.1
 azure-identity~=1.19.0
 
 # Map
