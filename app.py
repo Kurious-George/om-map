@@ -58,9 +58,7 @@ logger = logging.getLogger(__name__)
 # Branding
 # ---------------------------------------------------------------------------
 
-STARWOOD_LOGO_URL = (
-    "StarwoodCapitalLogo.svg"
-)
+STARWOOD_LOGO_URL = "app/static/StarwoodCapitalLogo.svg"
 # Conservative corporate navy palette. Adjust to the official brand guide when
 # available — these three variables drive every branded accent in the app.
 BRAND_NAVY = "#0F2544"
