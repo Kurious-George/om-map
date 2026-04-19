@@ -30,15 +30,17 @@ services:
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
       AZURE_STORAGE_ACCOUNT: ${AZURE_STORAGE_ACCOUNT}
       AZURE_BLOB_CONTAINER: ${AZURE_BLOB_CONTAINER:-om-pdfs}
+      # Service-principal credentials for local dev. DefaultAzureCredential's
+      # EnvironmentCredential picks these up. In prod on Azure infra, leave
+      # these unset and ManagedIdentityCredential takes over.
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID}
       APP_USERS: ${APP_USERS}
-      # For local Azure Blob access, mount your host `az login` cache so
-      # DefaultAzureCredential picks up AzureCliCredential inside the container.
-      AZURE_CONFIG_DIR: /home/app/.azure
     volumes:
       # Mount the host working tree over the baked-in code so `.py` edits
       # take effect without rebuilding the image. Remove for prod.
       - .:/home/app/app
-      - ${HOME}/.azure:/home/app/.azure:ro
     depends_on:
       db:
         condition: service_healthy

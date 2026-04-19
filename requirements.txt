@@ -17,6 +17,9 @@ python-dotenv~=1.0.1
 
 # Claude + PDF preflight
 anthropic~=0.39.0
+# anthropic 0.39 passes `proxies=` to httpx, which httpx 0.28+ removed.
+# Pin httpx below that boundary until anthropic is bumped.
+httpx<0.28
 pypdf~=5.1.0
 
 # Geocoding
