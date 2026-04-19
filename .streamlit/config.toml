@@ -1,0 +1,5 @@
+[server]
+# Serve files from the `static/` folder at URL path `app/static/<filename>`.
+# Used for the Starwood logo and any other brand assets.
+enableStaticServing = true
+headless = true

@@ -1,0 +1,36 @@
+# Pin within the minor version so patch updates come in naturally but we
+# don't get surprised by breaking changes. After the first successful install,
+# run `pip freeze > requirements.lock` if you want a fully-locked manifest
+# for reproducible builds.
+
+# Web framework
+streamlit~=1.40.2
+streamlit-folium~=0.23.2
+
+# Database
+SQLAlchemy~=2.0.49
+alembic~=1.14.1
+psycopg2-binary~=2.9.11
+
+# Config
+python-dotenv~=1.0.1
+
+# Claude + PDF preflight
+anthropic~=0.39.0
+# anthropic 0.39 passes `proxies=` to httpx, which httpx 0.28+ removed.
+# Pin httpx below that boundary until anthropic is bumped.
+httpx<0.28
+pypdf~=5.1.0
+
+# Geocoding
+googlemaps~=4.10.0
+
+# Azure Blob
+azure-storage-blob~=12.24.1
+azure-identity~=1.19.0
+
+# Map
+folium~=0.18.0
+
+# Data
+pandas~=2.2.3

@@ -1,0 +1,49 @@
+# Local dev stack. Prod builds this same image but points DATABASE_URL at the
+# managed Azure Database for PostgreSQL and drops the `db` service entirely.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: starwood_om_map
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d starwood_om_map"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/starwood_om_map
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+      AZURE_STORAGE_ACCOUNT: ${AZURE_STORAGE_ACCOUNT}
+      AZURE_BLOB_CONTAINER: ${AZURE_BLOB_CONTAINER:-om-pdfs}
+      # Service-principal credentials for local dev. DefaultAzureCredential's
+      # EnvironmentCredential picks these up. In prod on Azure infra, leave
+      # these unset and ManagedIdentityCredential takes over.
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
+      AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID}
+      APP_USERS: ${APP_USERS}
+    volumes:
+      # Mount the host working tree over the baked-in code so `.py` edits
+      # take effect without rebuilding the image. Remove for prod.
+      - .:/home/app/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
