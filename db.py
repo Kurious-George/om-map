@@ -106,7 +106,12 @@ class Property(Base):
     # Extracted fields --------------------------------------------------------
     address: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     building_type: Mapped[Optional[BuildingType]] = mapped_column(
-        SqlEnum(BuildingType, name="building_type", native_enum=True),
+        SqlEnum(
+            BuildingType,
+            name="building_type",
+            native_enum=True,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=True,
         index=True,
     )
@@ -118,14 +123,24 @@ class Property(Base):
 
     # Pipeline status ---------------------------------------------------------
     extraction_status: Mapped[ExtractionStatus] = mapped_column(
-        SqlEnum(ExtractionStatus, name="extraction_status", native_enum=True),
+        SqlEnum(
+            ExtractionStatus,
+            name="extraction_status",
+            native_enum=True,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
         default=ExtractionStatus.PENDING,
         server_default=ExtractionStatus.PENDING.value,
     )
     extraction_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     geocode_status: Mapped[GeocodeStatus] = mapped_column(
-        SqlEnum(GeocodeStatus, name="geocode_status", native_enum=True),
+        SqlEnum(
+            GeocodeStatus,
+            name="geocode_status",
+            native_enum=True,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
         default=GeocodeStatus.PENDING,
         server_default=GeocodeStatus.PENDING.value,
