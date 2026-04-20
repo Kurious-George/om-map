@@ -5,6 +5,8 @@ Memorandum PDFs; Claude extracts the key property fields, Google Maps
 geocodes the address, and every property appears as a color-coded pin on a
 shared world map.
 
+[![Watch the video](https://youtube.com)](https://youtu.be/DrqSYGGK9_c)
+
 ## Stack
 
 - **Streamlit** (UI, single-process, session-isolated state)
