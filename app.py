@@ -126,7 +126,7 @@ def _configure_page() -> None:
                 text-transform: uppercase;
             }}
             .sw-header .sw-accent {{
-                width: 2px; height: 26px; background: {BRAND_ACCENT};
+                width: 2px; height: 40px; background: {BRAND_ACCENT};
             }}
             .sw-caption {{
                 color: #6B6B6B; font-size: 12px;
@@ -141,7 +141,7 @@ def _render_header() -> None:
     st.markdown(
         f"""
         <div class="sw-header">
-            <img src="{STARWOOD_LOGO_DATA_URI}" height="30" alt="Starwood Capital" />
+            <img src="{STARWOOD_LOGO_DATA_URI}" height="48" alt="Starwood Capital" />
             <div class="sw-accent"></div>
             <h1>Offering Memorandum Map</h1>
         </div>
@@ -239,6 +239,8 @@ def _process_upload(file) -> dict:
         address=extraction.address,
         building_type=extraction.building_type,
         square_footage=extraction.square_footage,
+        cap_rate=extraction.cap_rate,
+        valuation=extraction.valuation,
         latitude=geo.latitude,
         longitude=geo.longitude,
         extraction_status=ExtractionStatus.SUCCESS,
@@ -429,7 +431,6 @@ def _render_review_row(prop: Property) -> None:
 
 
 def _render_map(properties: list[Property]) -> None:
-    st.subheader("Property map")
     fmap = build_map(properties)
     # returned_objects=[] stops st_folium from triggering reruns on pan/zoom/click.
     st_folium(fmap, height=600, use_container_width=True, returned_objects=[])
@@ -448,7 +449,8 @@ def _render_summary_table(properties: list[Property]) -> None:
             "Address": p.address or "(none)",
             "Type": p.building_type.value if p.building_type else "unknown",
             "Square ft": p.square_footage,
-            "Uploaded": p.upload_timestamp.strftime("%Y-%m-%d %H:%M"),
+            "Cap rate": f"{p.cap_rate:.2f}%" if p.cap_rate is not None else None,
+            "Valuation": f"${p.valuation:,}" if p.valuation is not None else None,
             "Needs review": p.needs_review,
         }
         for p in properties

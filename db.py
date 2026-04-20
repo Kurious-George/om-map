@@ -116,6 +116,10 @@ class Property(Base):
         index=True,
     )
     square_footage: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # In-place cap rate stored as a percentage number (e.g. 6.5 means 6.5%).
+    cap_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    # Asking price (or appraised value) in whole US dollars.
+    valuation: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
 
     # Geocoded coordinates ----------------------------------------------------
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)

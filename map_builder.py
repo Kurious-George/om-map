@@ -35,16 +35,16 @@ from db import BuildingType, ExtractionStatus, GeocodeStatus, Property
 logger = logging.getLogger(__name__)
 
 
-# ColorBrewer Set1 — qualitative palette designed for categorical data with
-# ~8 distinct classes. `None` (unknown building type) gets a neutral gray.
+# Tableau 10 — qualitative palette tuned for BI dashboards; softer than
+# ColorBrewer Set1 but still high-contrast. `None` (unknown) gets a neutral gray.
 BUILDING_TYPE_COLORS: dict[Optional[BuildingType], str] = {
-    BuildingType.OFFICE: "#377eb8",       # blue
-    BuildingType.RESIDENTIAL: "#4daf4a",  # green
-    BuildingType.RETAIL: "#e41a1c",       # red
-    BuildingType.INDUSTRIAL: "#984ea3",   # purple
-    BuildingType.MIXED_USE: "#ff7f00",    # orange
-    BuildingType.HOSPITALITY: "#a65628",  # brown
-    BuildingType.MULTIFAMILY: "#f781bf",  # pink
+    BuildingType.OFFICE: "#4e79a7",       # blue
+    BuildingType.RESIDENTIAL: "#59a14f",  # green
+    BuildingType.RETAIL: "#76b7b2",       # teal
+    BuildingType.INDUSTRIAL: "#b07aa1",   # purple
+    BuildingType.MIXED_USE: "#f28e2b",    # orange
+    BuildingType.HOSPITALITY: "#edc948",  # gold
+    BuildingType.MULTIFAMILY: "#e15759",  # red
     None: "#999999",                       # gray (unknown)
 }
 
@@ -148,7 +148,8 @@ def _popup_html(prop: Property) -> str:
     address = html.escape(prop.address or "(address not extracted)")
     building = html.escape(_BUILDING_TYPE_LABELS.get(prop.building_type, "Unknown"))
     sqft = f"{prop.square_footage:,}" if prop.square_footage else "—"
-    uploaded_on = prop.upload_timestamp.strftime("%Y-%m-%d")
+    cap_rate = f"{prop.cap_rate:.2f}%" if prop.cap_rate is not None else "—"
+    valuation = f"${prop.valuation:,}" if prop.valuation is not None else "—"
 
     review_badge = ""
     if prop.needs_review:
@@ -164,7 +165,8 @@ def _popup_html(prop: Property) -> str:
         <div style="font-size:12px;color:#444;line-height:1.5;">
             <div><b>Type:</b> {building}</div>
             <div><b>SF:</b> {sqft}</div>
-            <div><b>Uploaded:</b> {uploaded_on}</div>
+            <div><b>Cap rate:</b> {cap_rate}</div>
+            <div><b>Valuation:</b> {valuation}</div>
         </div>
         {review_badge}
     </div>

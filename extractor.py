@@ -92,6 +92,8 @@ class ExtractionResult:
     address: Optional[str]
     building_type: Optional[BuildingType]
     square_footage: Optional[int]
+    cap_rate: Optional[float]
+    valuation: Optional[int]
     needs_review: bool
     review_reason: Optional[str]
 
@@ -137,6 +139,28 @@ _TOOL_SCHEMA = {
                 ),
                 "minimum": 0,
             },
+            "cap_rate": {
+                "type": ["number", "null"],
+                "description": (
+                    "In-place (current) cap rate as a percentage number — "
+                    "e.g. 6.5 means 6.5%, not 0.065. Prefer in-place / "
+                    "current over stabilized or pro-forma cap rates. Null "
+                    "if no in-place cap rate is stated — do not flag "
+                    "needs_review on that basis alone."
+                ),
+                "minimum": 0,
+                "maximum": 100,
+            },
+            "valuation": {
+                "type": ["integer", "null"],
+                "description": (
+                    "Property valuation in whole US dollars. Prefer in this "
+                    "order: (1) asking price or price guidance, (2) "
+                    "BOV / appraised value. Null if none of those is "
+                    "stated — do not flag needs_review on that basis alone."
+                ),
+                "minimum": 0,
+            },
             "needs_review": {
                 "type": "boolean",
                 "description": (
@@ -178,7 +202,14 @@ address only and set needs_review=true.
     hospitality    = hotels, resorts, other transient lodging
     multifamily    = apartment buildings and other multi-unit rental housing
 - For square_footage: prefer rentable square footage (RSF) when both RSF and \
-gross are stated. Return null for land-only deals or when only lot/land size is given."""
+gross are stated. Return null for land-only deals or when only lot/land size is given.
+- For cap_rate: extract the in-place (current) cap rate, expressed as a \
+percentage number (e.g. 6.5 for 6.5%, not 0.065). If the OM states only a \
+stabilized or pro-forma cap rate, return null. Missing cap rate is NOT a \
+reason to set needs_review=true.
+- For valuation: prefer (1) asking price or price guidance, then (2) BOV / \
+appraised value. Return a whole-dollar integer. If none of those is stated, \
+return null. Missing valuation is NOT a reason to set needs_review=true."""
 
 
 # ---------------------------------------------------------------------------
@@ -319,6 +350,18 @@ def _build_result(args: dict, filename: str) -> ExtractionResult:
     if isinstance(square_footage, float):
         square_footage = int(square_footage)
 
+    cap_rate = args.get("cap_rate")
+    if isinstance(cap_rate, int):
+        cap_rate = float(cap_rate)
+    elif not isinstance(cap_rate, float):
+        cap_rate = None
+
+    valuation = args.get("valuation")
+    if isinstance(valuation, float):
+        valuation = int(valuation)
+    elif not isinstance(valuation, int):
+        valuation = None
+
     needs_review = bool(args.get("needs_review", True))
     review_reason = _clean_str(args.get("review_reason"))
 
@@ -343,6 +386,8 @@ def _build_result(args: dict, filename: str) -> ExtractionResult:
         address=address,
         building_type=building_type,
         square_footage=square_footage,
+        cap_rate=cap_rate,
+        valuation=valuation,
         needs_review=needs_review,
         review_reason=review_reason,
     )
