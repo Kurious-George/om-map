@@ -35,7 +35,6 @@ Single Streamlit process; each module has a tight public surface:
 - `extractor.py` — Claude Sonnet 4.6 via tool use with `cache_control: ephemeral` on system prompt AND tool schema. `pypdf` preflight enforces Claude's 32MB / 100-page limits before the API call.
 - `geocoder.py` — Google Maps only (Nominatim was dropped for ToS reasons). Low-quality matches (`APPROXIMATE`, `GEOMETRIC_CENTER`, `partial_match`) set `needs_review=True`.
 - `map_builder.py` — Folium map with `MarkerCluster` + `CircleMarker`s using ColorBrewer Set1. Also owns `filter_review_queue()` and `BUILDING_TYPE_COLORS`.
-- `auth.py` — `get_current_user()` seam. Currently a sidebar selectbox fed from `APP_USERS`; swap to a reverse-proxy header without changing callers.
 
 ### Data flow constants to preserve
 
@@ -74,4 +73,4 @@ Single Streamlit process; each module has a tight public surface:
 
 - No test suite. `pytest` + a compose-spawned Postgres + mocked Claude and Google clients is the expected shape.
 - No edit UI for extracted fields. Only `Reviewed` and `Delete` actions exist on the review queue.
-- `auth.py` is a selectbox stopgap; wire to a reverse-proxy header when infra is ready.
+- No user identity tracking — the app is unauthenticated and uploads are anonymous. If that ever needs to change, it should come in via a reverse-proxy identity header, not a re-added selector.
