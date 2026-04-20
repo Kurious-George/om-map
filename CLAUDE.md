@@ -33,8 +33,9 @@ Single Streamlit process; each module has a tight public surface:
 - `db.py` — SQLAlchemy 2.x ORM (`Property`), three Postgres enums, `get_session()` context manager.
 - `storage.py` — Azure Blob upload/download keyed by SHA-256, plus `get_pdf_url()` which mints a 1-hour user-delegation SAS URL so the UI can link to raw PDFs without exposing account keys. Uses `DefaultAzureCredential`: dev picks up `AZURE_CLIENT_*` env vars (service principal); prod picks up managed identity.
 - `extractor.py` — Claude Sonnet 4.6 via tool use with `cache_control: ephemeral` on system prompt AND tool schema. `pypdf` preflight enforces Claude's 32MB / 100-page limits before the API call.
-- `geocoder.py` — Google Maps only (Nominatim was dropped for ToS reasons). Low-quality matches (`APPROXIMATE`, `GEOMETRIC_CENTER`, `partial_match`) set `needs_review=True`.
-- `map_builder.py` — Folium map with `MarkerCluster` + `CircleMarker`s using the Tableau 10 palette. Popups include a SAS-signed PDF link. Also owns `filter_review_queue()` and `BUILDING_TYPE_COLORS`.
+- `geocoder.py` — Google Maps only (Nominatim was dropped for ToS reasons). Low-quality matches (`APPROXIMATE`, `GEOMETRIC_CENTER`, `partial_match`) set `needs_review=True`. Uses the server-side `GOOGLE_MAPS_API_KEY`.
+- `streetview.py` — Pure URL builder for the Google Street View Static API. No HTTP call; the URL is rendered in popup `<img>` tags and the browser loads it on demand. Reads `GOOGLE_STREETVIEW_API_KEY` with a fallback to `GOOGLE_MAPS_API_KEY`.
+- `map_builder.py` — Folium map with `MarkerCluster` + `CircleMarker`s using the Tableau 10 palette. Popups include a Street View image at the top and a SAS-signed PDF link at the bottom. Also owns `filter_review_queue()` and `BUILDING_TYPE_COLORS`.
 
 ### Data flow constants to preserve
 
@@ -62,6 +63,7 @@ Single Streamlit process; each module has a tight public surface:
 - **`values_callable=lambda e: [m.value for m in e]`** is required on every `SqlEnum(...)` column in `db.py`. Without it, SQLAlchemy serializes the Python member *name* (`"MULTIFAMILY"`) but Postgres expects the *value* (`"multifamily"`). Don't remove.
 - **The initial Alembic migration uses raw `op.execute` SQL** for `CREATE TYPE` / `CREATE TABLE`. This avoids a long-standing SQLAlchemy bug where enum types double-fire CREATE via the `before_create` event (both `sa.Enum(create_type=False)` and `postgresql.ENUM(create_type=False)` have been unreliable across versions). Future enum migrations should continue to prefer `op.execute`.
 - **`httpx<0.28` is pinned** in `requirements.txt` because `anthropic` 0.39.0 passes the removed `proxies=` kwarg. Bump `anthropic` and drop the pin when you have time.
+- **Two Google Maps keys, not one.** `GOOGLE_MAPS_API_KEY` is server-side (geocoder) and should be IP-restricted; `GOOGLE_STREETVIEW_API_KEY` is embedded in popup `<img src>` and must be HTTP-referrer-restricted. The two Google restriction types are mutually exclusive per key, so collapsing back to one key forces you to either (a) break server calls by referrer-restricting, or (b) leave a client-visible key unrestricted. `streetview.py` falls back to the server key only so the feature keeps working before the split is rolled out — not as a long-term configuration.
 
 ### Auth model
 
