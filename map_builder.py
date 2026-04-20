@@ -40,11 +40,11 @@ logger = logging.getLogger(__name__)
 BUILDING_TYPE_COLORS: dict[Optional[BuildingType], str] = {
     BuildingType.OFFICE: "#4e79a7",       # blue
     BuildingType.RESIDENTIAL: "#59a14f",  # green
-    BuildingType.RETAIL: "#e15759",       # red
+    BuildingType.RETAIL: "#76b7b2",       # teal
     BuildingType.INDUSTRIAL: "#b07aa1",   # purple
     BuildingType.MIXED_USE: "#f28e2b",    # orange
     BuildingType.HOSPITALITY: "#edc948",  # gold
-    BuildingType.MULTIFAMILY: "#76b7b2",  # teal
+    BuildingType.MULTIFAMILY: "#e15759",  # red
     None: "#999999",                       # gray (unknown)
 }
 
