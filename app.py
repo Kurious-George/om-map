@@ -87,6 +87,18 @@ def _configure_page() -> None:
             .stApp {{
                 background-color: {BRAND_LIGHT};
             }}
+            header[data-testid="stHeader"],
+            header.stAppHeader,
+            div[data-testid="stToolbar"],
+            div[data-testid="stDecoration"],
+            div[data-testid="stStatusWidget"],
+            #MainMenu {{
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+            }}
+            .stApp > div:first-child {{ padding-top: 0 !important; }}
+            .block-container {{ padding-top: 1rem !important; }}
             section[data-testid="stSidebar"] {{
                 background-color: #FFFFFF;
                 border-right: 1px solid #E5E1D8;
