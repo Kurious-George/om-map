@@ -31,6 +31,7 @@ import folium
 from folium.plugins import MarkerCluster
 
 from db import BuildingType, ExtractionStatus, GeocodeStatus, Property
+from storage import get_pdf_url
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +130,14 @@ def _needs_attention(prop: Property) -> bool:
 
 def _add_marker(cluster: MarkerCluster, prop: Property) -> None:
     color = BUILDING_TYPE_COLORS.get(prop.building_type, BUILDING_TYPE_COLORS[None])
-    popup_html = _popup_html(prop)
+    pdf_url: Optional[str] = None
+    if prop.pdf_blob_path:
+        try:
+            pdf_url = get_pdf_url(prop.pdf_blob_path)
+        except Exception:
+            # Don't drop the marker over a bad SAS; the link is a nice-to-have.
+            logger.exception("Failed to build PDF URL for property %s", prop.id)
+    popup_html = _popup_html(prop, pdf_url)
     folium.CircleMarker(
         location=(prop.latitude, prop.longitude),
         radius=7,
@@ -143,7 +151,7 @@ def _add_marker(cluster: MarkerCluster, prop: Property) -> None:
     ).add_to(cluster)
 
 
-def _popup_html(prop: Property) -> str:
+def _popup_html(prop: Property, pdf_url: Optional[str] = None) -> str:
     """HTML for the marker popup. All dynamic fields are escape-safed."""
     address = html.escape(prop.address or "(address not extracted)")
     building = html.escape(_BUILDING_TYPE_LABELS.get(prop.building_type, "Unknown"))
@@ -159,6 +167,15 @@ def _popup_html(prop: Property) -> str:
             'font-weight:600;letter-spacing:0.04em;">NEEDS REVIEW</div>'
         )
 
+    pdf_link = ""
+    if pdf_url:
+        safe_url = html.escape(pdf_url, quote=True)
+        pdf_link = (
+            f'<div style="margin-top:8px;font-size:12px;">'
+            f'<a href="{safe_url}" target="_blank" rel="noopener noreferrer">PDF Link</a>'
+            f"</div>"
+        )
+
     return f"""
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-width: 220px;">
         <div style="font-weight:600;font-size:14px;margin-bottom:4px;">{address}</div>
@@ -169,6 +186,7 @@ def _popup_html(prop: Property) -> str:
             <div><b>Valuation:</b> {valuation}</div>
         </div>
         {review_badge}
+        {pdf_link}
     </div>
     """
 
