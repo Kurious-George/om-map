@@ -239,6 +239,8 @@ def _process_upload(file) -> dict:
         address=extraction.address,
         building_type=extraction.building_type,
         square_footage=extraction.square_footage,
+        cap_rate=extraction.cap_rate,
+        valuation=extraction.valuation,
         latitude=geo.latitude,
         longitude=geo.longitude,
         extraction_status=ExtractionStatus.SUCCESS,
@@ -447,7 +449,8 @@ def _render_summary_table(properties: list[Property]) -> None:
             "Address": p.address or "(none)",
             "Type": p.building_type.value if p.building_type else "unknown",
             "Square ft": p.square_footage,
-            "Uploaded": p.upload_timestamp.strftime("%Y-%m-%d %H:%M"),
+            "Cap rate": f"{p.cap_rate:.2f}%" if p.cap_rate is not None else None,
+            "Valuation": f"${p.valuation:,}" if p.valuation is not None else None,
             "Needs review": p.needs_review,
         }
         for p in properties

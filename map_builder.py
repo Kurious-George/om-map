@@ -148,7 +148,8 @@ def _popup_html(prop: Property) -> str:
     address = html.escape(prop.address or "(address not extracted)")
     building = html.escape(_BUILDING_TYPE_LABELS.get(prop.building_type, "Unknown"))
     sqft = f"{prop.square_footage:,}" if prop.square_footage else "—"
-    uploaded_on = prop.upload_timestamp.strftime("%Y-%m-%d")
+    cap_rate = f"{prop.cap_rate:.2f}%" if prop.cap_rate is not None else "—"
+    valuation = f"${prop.valuation:,}" if prop.valuation is not None else "—"
 
     review_badge = ""
     if prop.needs_review:
@@ -164,7 +165,8 @@ def _popup_html(prop: Property) -> str:
         <div style="font-size:12px;color:#444;line-height:1.5;">
             <div><b>Type:</b> {building}</div>
             <div><b>SF:</b> {sqft}</div>
-            <div><b>Uploaded:</b> {uploaded_on}</div>
+            <div><b>Cap rate:</b> {cap_rate}</div>
+            <div><b>Valuation:</b> {valuation}</div>
         </div>
         {review_badge}
     </div>
