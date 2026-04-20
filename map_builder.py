@@ -32,6 +32,7 @@ from folium.plugins import MarkerCluster
 
 from db import BuildingType, ExtractionStatus, GeocodeStatus, Property
 from storage import get_pdf_url
+from streetview import streetview_image_url
 
 logger = logging.getLogger(__name__)
 
@@ -176,10 +177,24 @@ def _popup_html(prop: Property, pdf_url: Optional[str] = None) -> str:
             f"</div>"
         )
 
+    image_tag = ""
+    sv_url = streetview_image_url(prop.latitude, prop.longitude)
+    if sv_url:
+        safe_sv = html.escape(sv_url, quote=True)
+        # onerror hides the <img> when Google returns 404 (no imagery at
+        # this location), collapsing the popup cleanly.
+        image_tag = (
+            f'<img src="{safe_sv}" alt="Street view" '
+            f'style="display:block;width:100%;height:auto;border-radius:4px;'
+            f'margin-bottom:8px;" '
+            f"onerror=\"this.style.display='none'\" />"
+        )
+
     return f"""
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-width: 220px;">
-        <div style="font-weight:600;font-size:14px;margin-bottom:4px;">{address}</div>
+        {image_tag}
         <div style="font-size:12px;color:#444;line-height:1.5;">
+            <div><b>Address:</b> {address}</div>
             <div><b>Type:</b> {building}</div>
             <div><b>SF:</b> {sqft}</div>
             <div><b>Cap rate:</b> {cap_rate}</div>
