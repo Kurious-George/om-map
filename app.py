@@ -19,9 +19,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import base64
 import logging
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 import pandas as pd
@@ -57,12 +59,13 @@ logger = logging.getLogger(__name__)
 # Branding
 # ---------------------------------------------------------------------------
 
-# Browser-visible URL served by Streamlit's static-file serving; used inside
-# raw HTML blocks where the value lands in an <img src="..."> attribute.
-STARWOOD_LOGO_URL = "app/static/StarwoodCapitalLogo.svg"
-# Filesystem path (relative to the app working directory) used by st.image(),
-# which reads bytes server-side rather than fetching a URL.
-STARWOOD_LOGO_PATH = "static/StarwoodCapitalLogo.svg"
+# Embed the logo as a base64 data URI. Streamlit's static file handler serves
+# .svg as text/plain with nosniff, so <img src="app/static/...svg"> fails
+# silently in the browser. Inlining bypasses the HTTP route entirely.
+_LOGO_BYTES = (Path(__file__).parent / "static" / "StarwoodCapitalLogo.svg").read_bytes()
+STARWOOD_LOGO_DATA_URI = (
+    f"data:image/svg+xml;base64,{base64.b64encode(_LOGO_BYTES).decode('ascii')}"
+)
 # Conservative corporate navy palette. Adjust to the official brand guide when
 # available — these three variables drive every branded accent in the app.
 BRAND_NAVY = "#0F2544"
@@ -138,7 +141,7 @@ def _render_header() -> None:
     st.markdown(
         f"""
         <div class="sw-header">
-            <img src="{STARWOOD_LOGO_URL}" height="30" alt="Starwood Capital" />
+            <img src="{STARWOOD_LOGO_DATA_URI}" height="30" alt="Starwood Capital" />
             <div class="sw-accent"></div>
             <h1>Offering Memorandum Map</h1>
         </div>
@@ -316,8 +319,6 @@ def _soft_delete(property_id: int) -> None:
 
 def _render_sidebar() -> None:
     with st.sidebar:
-        st.image(STARWOOD_LOGO_PATH, width=160)
-        st.markdown("&nbsp;", unsafe_allow_html=True)
         st.subheader("Upload OMs")
         _render_uploader()
 
