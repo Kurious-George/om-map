@@ -22,6 +22,7 @@ load_dotenv()
 import base64
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -175,6 +176,11 @@ def load_properties() -> list[Property]:
 # ---------------------------------------------------------------------------
 # Upload pipeline
 # ---------------------------------------------------------------------------
+
+# Concurrent per-file pipelines. Claude extraction is the dominant cost
+# (~10-30s per 100-page OM); 6 in-flight keeps wall time low without
+# bumping into Anthropic rate limits on typical paid tiers.
+_UPLOAD_WORKERS = 6
 
 
 def _find_duplicate(sha256: str) -> Optional[Property]:
@@ -351,17 +357,28 @@ def _render_uploader() -> None:
 def _run_batch(files: list) -> None:
     with st.status(f"Processing {len(files)} file(s)…", expanded=True) as status:
         summary = {"success": 0, "skipped": 0, "failed": 0}
-        for f in files:
-            st.write(f"**{f.name}**")
-            result = _process_upload(f)
-            summary[result["status"]] += 1
-            if result["status"] == "success":
-                st.write("- imported")
-            elif result["status"] == "skipped":
-                st.write(f"- skipped: {result['reason']}")
-                st.toast(f"Skipped {f.name}: {result['reason']}", icon="⚠")
-            else:
-                st.write(f"- failed: {result['reason']}")
+        with ThreadPoolExecutor(max_workers=_UPLOAD_WORKERS) as pool:
+            futures = [pool.submit(_process_upload, f) for f in files]
+            try:
+                for future in as_completed(futures):
+                    result = future.result()
+                    summary[result["status"]] += 1
+                    name = result["filename"]
+                    st.write(f"**{name}**")
+                    if result["status"] == "success":
+                        st.write("- imported")
+                    elif result["status"] == "skipped":
+                        st.write(f"- skipped: {result['reason']}")
+                        st.toast(f"Skipped {name}: {result['reason']}", icon="⚠")
+                    else:
+                        st.write(f"- failed: {result['reason']}")
+            except GeocoderConfigError:
+                # Config error affects every file; cancel anything not yet
+                # started so we don't burn Claude calls on doomed uploads.
+                # (In-flight futures can't be cancelled and will finish.)
+                for pending in futures:
+                    pending.cancel()
+                raise
         status.update(
             label=(
                 f"Done — {summary['success']} imported, "
