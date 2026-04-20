@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Internal Starwood Capital Streamlit app. Employees upload real estate Offering Memorandum PDFs; Claude Sonnet 4.6 extracts address / building_type / square_footage; Google Maps geocodes the address; everything lands in Postgres with the raw PDF in Azure Blob; a shared Folium map shows all properties as color-coded markers. See `README.md` for setup, `Notes.md` for the original product brief.
+Internal Starwood Capital Streamlit app. Employees upload real estate Offering Memorandum PDFs; Claude Sonnet 4.6 extracts address / building_type / square_footage / cap_rate / valuation; Google Maps geocodes the address; everything lands in Postgres with the raw PDF in Azure Blob; a shared Folium map shows all properties as color-coded markers with a PDF link in each popup. See `README.md` for setup.
 
 ## Common commands
 
@@ -31,10 +31,10 @@ Single Streamlit process; each module has a tight public surface:
 
 - `app.py` — entry point. Owns the upload pipeline (dedup → extract → blob → geocode → insert), review queue, map, summary table. **The only module with Streamlit calls.**
 - `db.py` — SQLAlchemy 2.x ORM (`Property`), three Postgres enums, `get_session()` context manager.
-- `storage.py` — Azure Blob upload/download keyed by SHA-256. Uses `DefaultAzureCredential`: dev picks up `AZURE_CLIENT_*` env vars (service principal); prod picks up managed identity.
+- `storage.py` — Azure Blob upload/download keyed by SHA-256, plus `get_pdf_url()` which mints a 1-hour user-delegation SAS URL so the UI can link to raw PDFs without exposing account keys. Uses `DefaultAzureCredential`: dev picks up `AZURE_CLIENT_*` env vars (service principal); prod picks up managed identity.
 - `extractor.py` — Claude Sonnet 4.6 via tool use with `cache_control: ephemeral` on system prompt AND tool schema. `pypdf` preflight enforces Claude's 32MB / 100-page limits before the API call.
 - `geocoder.py` — Google Maps only (Nominatim was dropped for ToS reasons). Low-quality matches (`APPROXIMATE`, `GEOMETRIC_CENTER`, `partial_match`) set `needs_review=True`.
-- `map_builder.py` — Folium map with `MarkerCluster` + `CircleMarker`s using ColorBrewer Set1. Also owns `filter_review_queue()` and `BUILDING_TYPE_COLORS`.
+- `map_builder.py` — Folium map with `MarkerCluster` + `CircleMarker`s using the Tableau 10 palette. Popups include a SAS-signed PDF link. Also owns `filter_review_queue()` and `BUILDING_TYPE_COLORS`.
 
 ### Data flow constants to preserve
 
