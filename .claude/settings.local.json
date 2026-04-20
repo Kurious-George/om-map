@@ -6,7 +6,8 @@
       "Bash(curl -sI http://localhost:8501/)",
       "Bash(ls C:\\\\\\\\Users\\\\\\\\hendr\\\\\\\\projects\\\\\\\\Starwood-OM-Map/alembic/versions/)",
       "Bash(ls C:\\\\\\\\Users\\\\\\\\hendr\\\\\\\\projects\\\\\\\\Starwood-OM-Map/migrations/)",
-      "Bash(ls *)"
+      "Bash(ls *)",
+      "Bash(python -m py_compile app.py)"
     ]
   }
 }
