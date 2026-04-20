@@ -126,7 +126,7 @@ def _configure_page() -> None:
                 text-transform: uppercase;
             }}
             .sw-header .sw-accent {{
-                width: 2px; height: 26px; background: {BRAND_ACCENT};
+                width: 2px; height: 40px; background: {BRAND_ACCENT};
             }}
             .sw-caption {{
                 color: #6B6B6B; font-size: 12px;
@@ -141,7 +141,7 @@ def _render_header() -> None:
     st.markdown(
         f"""
         <div class="sw-header">
-            <img src="{STARWOOD_LOGO_DATA_URI}" height="30" alt="Starwood Capital" />
+            <img src="{STARWOOD_LOGO_DATA_URI}" height="48" alt="Starwood Capital" />
             <div class="sw-accent"></div>
             <h1>Offering Memorandum Map</h1>
         </div>
