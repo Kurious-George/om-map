@@ -24,7 +24,9 @@ shared world map.
 - **Azure CLI:** `winget install Microsoft.AzureCLI` (close + reopen PowerShell)
 - **An Azure subscription** — free tier is sufficient: https://azure.microsoft.com/free
 - **Anthropic API key:** https://console.anthropic.com
-- **Google Maps API key** with the **Geocoding API** enabled on the key
+- **Google Maps API key(s)** with the **Geocoding API** and **Street View
+  Static API** enabled. Two keys recommended — see `.env.example` for the
+  server-side vs client-side split and why.
 
 ### 1. Provision the Azure resources
 
@@ -72,7 +74,9 @@ cp .env.example .env
 
 Fill in:
 - `ANTHROPIC_API_KEY`
-- `GOOGLE_MAPS_API_KEY`
+- `GOOGLE_MAPS_API_KEY` (server-side: geocoding)
+- `GOOGLE_STREETVIEW_API_KEY` (client-side: Street View in marker popups).
+  If unset, the app falls back to `GOOGLE_MAPS_API_KEY`.
 - `AZURE_STORAGE_ACCOUNT` — the `$STORAGE` value from step 1
 - `AZURE_BLOB_CONTAINER` — keep as `om-pdfs` (matches above)
 - `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` / `AZURE_TENANT_ID` — from the
@@ -137,6 +141,7 @@ db.py              SQLAlchemy models, engine, session factory
 storage.py         Azure Blob upload/download by SHA-256
 extractor.py       Claude PDF extraction (tool use + prompt caching + preflight)
 geocoder.py        Google Maps geocoding with match-quality review flags
+streetview.py      Google Street View Static URL builder (popup images)
 map_builder.py     Folium map + MarkerCluster + review-queue filter
 migrations/        Alembic environment + versioned migrations (raw SQL)
 static/            Served by Streamlit at /app/static/<filename>
