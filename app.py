@@ -429,7 +429,6 @@ def _render_review_row(prop: Property) -> None:
 
 
 def _render_map(properties: list[Property]) -> None:
-    st.subheader("Property map")
     fmap = build_map(properties)
     # returned_objects=[] stops st_folium from triggering reruns on pan/zoom/click.
     st_folium(fmap, height=600, use_container_width=True, returned_objects=[])
