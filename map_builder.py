@@ -149,7 +149,6 @@ def _popup_html(prop: Property) -> str:
     building = html.escape(_BUILDING_TYPE_LABELS.get(prop.building_type, "Unknown"))
     sqft = f"{prop.square_footage:,}" if prop.square_footage else "—"
     uploaded_on = prop.upload_timestamp.strftime("%Y-%m-%d")
-    uploaded_by = html.escape(prop.uploaded_by or "—")
 
     review_badge = ""
     if prop.needs_review:
@@ -165,7 +164,7 @@ def _popup_html(prop: Property) -> str:
         <div style="font-size:12px;color:#444;line-height:1.5;">
             <div><b>Type:</b> {building}</div>
             <div><b>SF:</b> {sqft}</div>
-            <div><b>Uploaded:</b> {uploaded_on} by {uploaded_by}</div>
+            <div><b>Uploaded:</b> {uploaded_on}</div>
         </div>
         {review_badge}
     </div>

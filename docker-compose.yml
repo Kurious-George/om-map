@@ -36,7 +36,6 @@ services:
       AZURE_CLIENT_ID: ${AZURE_CLIENT_ID}
       AZURE_CLIENT_SECRET: ${AZURE_CLIENT_SECRET}
       AZURE_TENANT_ID: ${AZURE_TENANT_ID}
-      APP_USERS: ${APP_USERS}
     volumes:
       # Mount the host working tree over the baked-in code so `.py` edits
       # take effect without rebuilding the image. Remove for prod.

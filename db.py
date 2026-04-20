@@ -155,7 +155,6 @@ class Property(Base):
         server_default=expression.false(),
         index=True,
     )
-    uploaded_by: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     upload_timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

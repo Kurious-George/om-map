@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m py_compile app.py db.py map_builder.py migrations/versions/0002_drop_uploaded_by.py)"
+    ]
+  }
+}

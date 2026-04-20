@@ -2,7 +2,7 @@
 Streamlit entry point for the Starwood OM Map.
 
 Flow:
-  - Sidebar: logo, user selector, upload widget.
+  - Sidebar: logo, upload widget.
   - Main area (in order): review queue (if non-empty), map, summary table.
 
 Concurrency model:
@@ -30,7 +30,6 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from streamlit_folium import st_folium
 
-from auth import get_current_user, user_selector
 from db import (
     BuildingType,
     ExtractionStatus,
@@ -173,7 +172,7 @@ def _find_duplicate(sha256: str) -> Optional[Property]:
         return existing
 
 
-def _process_upload(file, user: str) -> dict:
+def _process_upload(file) -> dict:
     """
     Run one file through the full pipeline. Never raises for per-file
     failures — returns a result dict the caller uses to render status.
@@ -196,7 +195,7 @@ def _process_upload(file, user: str) -> dict:
             "filename": filename,
             "reason": (
                 f"duplicate of a file uploaded "
-                f"{existing.upload_timestamp:%Y-%m-%d} by {existing.uploaded_by}"
+                f"{existing.upload_timestamp:%Y-%m-%d}"
             ),
         }
 
@@ -232,7 +231,6 @@ def _process_upload(file, user: str) -> dict:
         geocode_status=geo.status,
         geocode_error=geo.error,
         needs_review=extraction.needs_review or geo.needs_review,
-        uploaded_by=user,
     )
     try:
         with get_session() as session:
@@ -308,15 +306,11 @@ def _render_sidebar() -> None:
     with st.sidebar:
         st.image(STARWOOD_LOGO_PATH, width=160)
         st.markdown("&nbsp;", unsafe_allow_html=True)
-        user_selector()
-        st.divider()
         st.subheader("Upload OMs")
         _render_uploader()
 
 
 def _render_uploader() -> None:
-    user = get_current_user()
-
     with st.form("upload_form", clear_on_submit=True):
         uploaded = st.file_uploader(
             "Drop Offering Memoranda (PDFs)",
@@ -328,12 +322,9 @@ def _render_uploader() -> None:
 
     if not submitted or not uploaded:
         return
-    if not user:
-        st.error("Select your name above before uploading.")
-        return
 
     try:
-        _run_batch(uploaded, user)
+        _run_batch(uploaded)
     except GeocoderConfigError as exc:
         st.error(f"Geocoding is unavailable: {exc}")
         return
@@ -342,12 +333,12 @@ def _render_uploader() -> None:
     st.rerun()
 
 
-def _run_batch(files: list, user: str) -> None:
+def _run_batch(files: list) -> None:
     with st.status(f"Processing {len(files)} file(s)…", expanded=True) as status:
         summary = {"success": 0, "skipped": 0, "failed": 0}
         for f in files:
             st.write(f"**{f.name}**")
-            result = _process_upload(f, user)
+            result = _process_upload(f)
             summary[result["status"]] += 1
             if result["status"] == "success":
                 st.write("- imported")
@@ -390,7 +381,7 @@ def _render_review_row(prop: Property) -> None:
             st.markdown(f"**{prop.address or '(no address extracted)'}**")
             meta = (
                 f"{prop.filename} · uploaded "
-                f"{prop.upload_timestamp:%Y-%m-%d %H:%M} by {prop.uploaded_by}"
+                f"{prop.upload_timestamp:%Y-%m-%d %H:%M}"
             )
             st.markdown(f'<div class="sw-caption">{meta}</div>', unsafe_allow_html=True)
             reasons: list[str] = []
@@ -445,7 +436,6 @@ def _render_summary_table(properties: list[Property]) -> None:
             "Type": p.building_type.value if p.building_type else "unknown",
             "Square ft": p.square_footage,
             "Uploaded": p.upload_timestamp.strftime("%Y-%m-%d %H:%M"),
-            "Uploaded by": p.uploaded_by,
             "Needs review": p.needs_review,
         }
         for p in properties

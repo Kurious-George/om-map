@@ -77,7 +77,6 @@ Fill in:
 - `AZURE_BLOB_CONTAINER` — keep as `om-pdfs` (matches above)
 - `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` / `AZURE_TENANT_ID` — from the
   service principal JSON (`appId` / `password` / `tenant`)
-- `APP_USERS` — comma-separated employee names for the sidebar picker
 
 Leave `DATABASE_URL` as the default; compose already points it at the `db` service.
 
@@ -139,7 +138,6 @@ storage.py         Azure Blob upload/download by SHA-256
 extractor.py       Claude PDF extraction (tool use + prompt caching + preflight)
 geocoder.py        Google Maps geocoding with match-quality review flags
 map_builder.py     Folium map + MarkerCluster + review-queue filter
-auth.py            Current-user seam (selectbox today, proxy-header swap later)
 migrations/        Alembic environment + versioned migrations (raw SQL)
 static/            Served by Streamlit at /app/static/<filename>
 .streamlit/        Streamlit config (static serving enabled)
@@ -198,8 +196,10 @@ docker-compose.yml Local dev stack (app + postgres)
 - No edit UI for extracted property fields (only **Reviewed** and **Delete**
   in v1). Add a form-style editor when human-in-the-loop corrections
   become common.
-- `auth.py` uses a sidebar selectbox. Swap for a reverse-proxy header
-  (e.g. `X-Forwarded-User`) once IT confirms the production ingress setup.
+- No user identity. Uploads are anonymous — there is no login and no
+  per-uploader attribution. If identity ever becomes a requirement,
+  inject it via a reverse-proxy header (e.g. `X-Forwarded-User`) rather
+  than re-adding a client-side selector.
 - No test suite yet. `pytest` + a compose-spawned Postgres + mocked Claude
   and Google clients is the expected shape.
 - No background-worker extraction. All Claude/geocoding work runs inline
