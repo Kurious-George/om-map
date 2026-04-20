@@ -46,7 +46,7 @@ from map_builder import (
     build_map,
     filter_review_queue,
 )
-from storage import compute_sha256, upload_pdf
+from storage import compute_sha256, get_pdf_url, upload_pdf
 
 logging.basicConfig(
     level=logging.INFO,
@@ -452,6 +452,7 @@ def _render_summary_table(properties: list[Property]) -> None:
             "Cap rate": f"{p.cap_rate:.2f}%" if p.cap_rate is not None else None,
             "Valuation": f"${p.valuation:,}" if p.valuation is not None else None,
             "Needs review": p.needs_review,
+            "PDF": _pdf_url_or_none(p.pdf_blob_path),
         }
         for p in properties
     ]
@@ -477,7 +478,26 @@ def _render_summary_table(properties: list[Property]) -> None:
     if search:
         df = df[df["Address"].str.contains(search, case=False, na=False)]
 
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "PDF": st.column_config.LinkColumn(
+                "PDF", display_text="PDF Link", width="small"
+            ),
+        },
+    )
+
+
+def _pdf_url_or_none(blob_path: Optional[str]) -> Optional[str]:
+    if not blob_path:
+        return None
+    try:
+        return get_pdf_url(blob_path)
+    except Exception:
+        logger.exception("Failed to build PDF URL for blob %s", blob_path)
+        return None
 
 
 # ---------------------------------------------------------------------------

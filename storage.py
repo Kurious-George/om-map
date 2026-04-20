@@ -19,15 +19,29 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.identity import DefaultAzureCredential
-from azure.storage.blob import BlobServiceClient, ContentSettings
+from azure.storage.blob import (
+    BlobSasPermissions,
+    BlobServiceClient,
+    ContentSettings,
+    generate_blob_sas,
+)
 
 logger = logging.getLogger(__name__)
 
 PDF_CONTENT_TYPE = "application/pdf"
+
+# User delegation SAS is scoped by how long the delegation key itself is valid;
+# Azure caps that at 7 days. We refresh the key hourly and issue short-lived
+# per-blob SAS tokens on top. 5-minute margin avoids handing out a SAS that
+# expires mid-request.
+_UDK_LIFETIME = timedelta(hours=1)
+_UDK_REFRESH_MARGIN = timedelta(minutes=5)
+_SAS_LIFETIME = timedelta(hours=1)
 
 
 # ---------------------------------------------------------------------------
@@ -43,19 +57,50 @@ def _required_env(name: str) -> str:
 
 
 @lru_cache(maxsize=1)
-def _container_client():
-    """Lazy, cached BlobContainerClient bound to the configured account + container.
-
-    Cached so we reuse connection pools across calls within a Streamlit session.
-    """
+def _service_client() -> BlobServiceClient:
+    """Lazy, cached BlobServiceClient. Used for both blob I/O and user
+    delegation key issuance."""
     account = _required_env("AZURE_STORAGE_ACCOUNT")
-    container = _required_env("AZURE_BLOB_CONTAINER")
     account_url = f"https://{account}.blob.core.windows.net"
     # DefaultAzureCredential is lazy — it does not authenticate until the first
     # request, so constructing the client here makes no network call.
     credential = DefaultAzureCredential()
-    service = BlobServiceClient(account_url=account_url, credential=credential)
-    return service.get_container_client(container)
+    return BlobServiceClient(account_url=account_url, credential=credential)
+
+
+@lru_cache(maxsize=1)
+def _container_client():
+    """Lazy, cached BlobContainerClient bound to the configured container.
+
+    Cached so we reuse connection pools across calls within a Streamlit session.
+    """
+    container = _required_env("AZURE_BLOB_CONTAINER")
+    return _service_client().get_container_client(container)
+
+
+_udk_cache: dict = {"key": None, "expires_on": None}
+
+
+def _get_user_delegation_key():
+    """Return a cached user delegation key, refreshing when it's close to expiry.
+
+    `DefaultAzureCredential` is OAuth-based (no account key), so SAS tokens must
+    be signed with a user delegation key fetched from the service. The key is
+    good for up to 7 days; we use 1 hour to keep the blast radius small.
+    """
+    now = datetime.now(timezone.utc)
+    expires = _udk_cache.get("expires_on")
+    key = _udk_cache.get("key")
+    if key is not None and expires is not None and expires - _UDK_REFRESH_MARGIN > now:
+        return key
+    start = now - timedelta(minutes=5)
+    expiry = now + _UDK_LIFETIME
+    key = _service_client().get_user_delegation_key(
+        key_start_time=start, key_expiry_time=expiry
+    )
+    _udk_cache["key"] = key
+    _udk_cache["expires_on"] = expiry
+    return key
 
 
 # ---------------------------------------------------------------------------
@@ -108,6 +153,26 @@ def upload_pdf(data: bytes, sha256: str, original_filename: str) -> str:
         # no-op at the storage layer.
         logger.info("Blob %s already exists; skipping upload", blob_name)
     return blob_name
+
+
+def get_pdf_url(blob_path: str) -> str:
+    """Generate a time-limited read-only URL for the given blob.
+
+    Uses a user delegation SAS so the same code path works for both local dev
+    (service principal) and prod (managed identity) — no account key required.
+    """
+    account = _required_env("AZURE_STORAGE_ACCOUNT")
+    container = _required_env("AZURE_BLOB_CONTAINER")
+    udk = _get_user_delegation_key()
+    sas = generate_blob_sas(
+        account_name=account,
+        container_name=container,
+        blob_name=blob_path,
+        user_delegation_key=udk,
+        permission=BlobSasPermissions(read=True),
+        expiry=datetime.now(timezone.utc) + _SAS_LIFETIME,
+    )
+    return f"https://{account}.blob.core.windows.net/{container}/{blob_path}?{sas}"
 
 
 def download_pdf(blob_path: str) -> bytes:
