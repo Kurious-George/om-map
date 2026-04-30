@@ -7,7 +7,13 @@
       "Bash(ls C:\\\\\\\\Users\\\\\\\\hendr\\\\\\\\projects\\\\\\\\Starwood-OM-Map/alembic/versions/)",
       "Bash(ls C:\\\\\\\\Users\\\\\\\\hendr\\\\\\\\projects\\\\\\\\Starwood-OM-Map/migrations/)",
       "Bash(ls *)",
-      "Bash(python -m py_compile app.py)"
+      "Bash(python -m py_compile app.py)",
+      "Bash(jq --version)",
+      "Bash(winget install *)",
+      "Bash(export PATH=\"$PATH:/c/Users/hendr/AppData/Local/Microsoft/WinGet/Links\")",
+      "Bash(\"/c/Users/hendr/AppData/Local/Microsoft/WinGet/Packages/jqlang.jq_Microsoft.Winget.Source_8wekyb3d8bbwe/jq.exe\" --version)",
+      "Bash(export PATH=\"/c/Users/hendr/AppData/Local/Microsoft/WinGet/Packages/jqlang.jq_Microsoft.Winget.Source_8wekyb3d8bbwe:$PATH\")",
+      "Bash(bash /c/Users/hendr/.claude/statusline-command.sh)"
     ]
   }
 }
