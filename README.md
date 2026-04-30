@@ -1,6 +1,6 @@
-# OM Map
+# Starwood OM Map
 
-Streamlit app to upload real estate Offering
+Internal Streamlit app for Starwood Capital. Upload real estate Offering
 Memorandum PDFs; Claude extracts the key property fields, Google Maps
 geocodes the address, and every property appears as a color-coded pin on a
 shared world map.
@@ -39,9 +39,9 @@ az login
 # If you have multiple subscriptions, pin the one you want to use:
 # az account set --subscription "<SubscriptionId>"
 
-$RG        = "om-dev"
+$RG        = "starwood-om-dev"
 $LOCATION  = "eastus"
-$STORAGE   = "omdev$(Get-Random -Maximum 99999)"   # must be globally unique
+$STORAGE   = "swomdev$(Get-Random -Maximum 99999)"   # must be globally unique
 $CONTAINER = "om-pdfs"
 
 az group create -n $RG -l $LOCATION
@@ -63,7 +63,7 @@ az storage container create `
 $ACCOUNT_ID = az storage account show -n $STORAGE -g $RG --query id -o tsv
 $SCOPE      = "$ACCOUNT_ID/blobServices/default/containers/$CONTAINER"
 az ad sp create-for-rbac `
-  --name "om-dev-sp" `
+  --name "starwood-om-dev-sp" `
   --role "Storage Blob Data Contributor" `
   --scopes $SCOPE
 ```
@@ -86,7 +86,12 @@ Fill in:
 
 Leave `DATABASE_URL` as the default; compose already points it at the `db` service.
 
-### 3. Bring everything up
+### 3. (Optional) drop in the Starwood logo
+
+Save the Starwood SVG logo as `static/StarwoodCapitalLogo.svg`. The app
+renders a text header if the file is missing, so this step is optional.
+
+### 4. Bring everything up
 
 ```powershell
 docker compose up --build -d
