@@ -62,7 +62,9 @@ logger = logging.getLogger(__name__)
 # Embed the logo as a base64 data URI. Streamlit's static file handler serves
 # .svg as text/plain with nosniff, so <img src="app/static/...svg"> fails
 # silently in the browser. Inlining bypasses the HTTP route entirely.
-_LOGO_BYTES = (Path(__file__).parent / "static" / "StarwoodCapitalLogo.svg").read_bytes()
+_LOGO_BYTES = (
+    Path(__file__).parent / "static" / "StarwoodCapitalLogo.svg"
+).read_bytes()
 STARWOOD_LOGO_DATA_URI = (
     f"data:image/svg+xml;base64,{base64.b64encode(_LOGO_BYTES).decode('ascii')}"
 )
@@ -209,8 +211,7 @@ def _process_upload(file) -> dict:
             "status": "skipped",
             "filename": filename,
             "reason": (
-                f"duplicate of a file uploaded "
-                f"{existing.upload_timestamp:%Y-%m-%d}"
+                f"duplicate of a file uploaded {existing.upload_timestamp:%Y-%m-%d}"
             ),
         }
 
@@ -218,10 +219,18 @@ def _process_upload(file) -> dict:
         extraction = extract_property(data, filename)
     except ExtractionError as exc:
         logger.warning("Extraction failed for %s: %s", filename, exc)
-        return {"status": "failed", "filename": filename, "reason": f"extraction: {exc}"}
+        return {
+            "status": "failed",
+            "filename": filename,
+            "reason": f"extraction: {exc}",
+        }
     except Exception as exc:
         logger.exception("Unexpected error extracting %s", filename)
-        return {"status": "failed", "filename": filename, "reason": f"unexpected: {exc}"}
+        return {
+            "status": "failed",
+            "filename": filename,
+            "reason": f"unexpected: {exc}",
+        }
 
     try:
         blob_path = upload_pdf(data, sha256, filename)
@@ -333,7 +342,9 @@ def _render_uploader() -> None:
             accept_multiple_files=True,
             label_visibility="collapsed",
         )
-        submitted = st.form_submit_button("Upload and process", use_container_width=True)
+        submitted = st.form_submit_button(
+            "Upload and process", use_container_width=True
+        )
 
     if not submitted or not uploaded:
         return
@@ -394,10 +405,7 @@ def _render_review_row(prop: Property) -> None:
         left, right = st.columns([5, 1])
         with left:
             st.markdown(f"**{prop.address or '(no address extracted)'}**")
-            meta = (
-                f"{prop.filename} · uploaded "
-                f"{prop.upload_timestamp:%Y-%m-%d %H:%M}"
-            )
+            meta = f"{prop.filename} · uploaded {prop.upload_timestamp:%Y-%m-%d %H:%M}"
             st.markdown(f'<div class="sw-caption">{meta}</div>', unsafe_allow_html=True)
             reasons: list[str] = []
             if prop.extraction_error:
@@ -412,7 +420,9 @@ def _render_review_row(prop: Property) -> None:
                     unsafe_allow_html=True,
                 )
         with right:
-            if st.button("Reviewed", key=f"review_ok_{prop.id}", use_container_width=True):
+            if st.button(
+                "Reviewed", key=f"review_ok_{prop.id}", use_container_width=True
+            ):
                 _mark_reviewed(prop.id)
                 st.rerun()
             if st.button(
