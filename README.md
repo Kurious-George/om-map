@@ -234,20 +234,3 @@ docker-compose.yml Local dev stack (app + postgres)
 - **Port 8501 already in use** — check what's holding it with
   `sudo ss -ltnp 'sport = :8501'`. Either stop the other process or change
   the host-side port in `docker-compose.yml`.
-
----
-
-## Known gaps / future work
-
-- No edit UI for extracted property fields (only **Reviewed** and **Delete**
-  in v1). Add a form-style editor when human-in-the-loop corrections
-  become common.
-- No user identity. Uploads are anonymous — there is no login and no
-  per-uploader attribution. If identity ever becomes a requirement,
-  inject it via a reverse-proxy header (e.g. `X-Forwarded-User`) rather
-  than re-adding a client-side selector.
-- No test suite yet. `pytest` + a compose-spawned Postgres + mocked Claude
-  and Google clients is the expected shape.
-- No background-worker extraction. All Claude/geocoding work runs inline
-  on the uploader's session thread. If upload volume ever pushes above
-  ~20 concurrent heavy users, move extraction to Celery/RQ.
