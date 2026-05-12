@@ -28,6 +28,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/starwood_om_map
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+      GOOGLE_STREETVIEW_API_KEY: ${GOOGLE_STREETVIEW_API_KEY}
       AZURE_STORAGE_ACCOUNT: ${AZURE_STORAGE_ACCOUNT}
       AZURE_BLOB_CONTAINER: ${AZURE_BLOB_CONTAINER:-om-pdfs}
       # Service-principal credentials for local dev. DefaultAzureCredential's

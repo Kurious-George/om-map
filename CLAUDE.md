@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Internal Starwood Capital Streamlit app. Employees upload real estate Offering Memorandum PDFs; Claude Sonnet 4.6 extracts address / building_type / square_footage / cap_rate / valuation; Google Maps geocodes the address; everything lands in Postgres with the raw PDF in Azure Blob; a shared Folium map shows all properties as color-coded markers with a PDF link in each popup. See `README.md` for setup.
+Streamlit app for uploading real estate Offering Memorandum PDFs. Claude Sonnet 4.6 extracts address / building_type / square_footage / cap_rate / valuation; Google Maps geocodes the address; everything lands in Postgres with the raw PDF in Azure Blob; a shared Folium map shows all properties as color-coded markers with a PDF link in each popup. See `README.md` for setup.
 
 ## Common commands
 
