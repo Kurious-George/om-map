@@ -88,7 +88,10 @@ def build_map(properties: Iterable[Property]) -> folium.Map:
         control_scale=True,
     )
 
-    cluster = MarkerCluster(name="Properties").add_to(fmap)
+    cluster = MarkerCluster(
+        name="Properties",
+        options={"disableClusteringAtZoom": 3, "spiderfyOnMaxZoom": False},
+    ).add_to(fmap)
     for prop in located:
         _add_marker(cluster, prop)
 
@@ -141,7 +144,7 @@ def _add_marker(cluster: MarkerCluster, prop: Property) -> None:
     popup_html = _popup_html(prop, pdf_url)
     folium.CircleMarker(
         location=(prop.latitude, prop.longitude),
-        radius=7,
+        radius=4,
         color=color,
         weight=1,
         fill=True,

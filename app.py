@@ -2,7 +2,7 @@
 Streamlit entry point for the Starwood OM Map.
 
 Flow:
-  - Sidebar: logo, upload widget.
+  - Sidebar: upload widget.
   - Main area (in order): review queue (if non-empty), map, summary table.
 
 Concurrency model:
@@ -19,11 +19,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import base64
+import html
 import logging
 import os
+import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
 
 import pandas as pd
@@ -59,15 +60,6 @@ logger = logging.getLogger(__name__)
 # Branding
 # ---------------------------------------------------------------------------
 
-# Embed the logo as a base64 data URI. Streamlit's static file handler serves
-# .svg as text/plain with nosniff, so <img src="app/static/...svg"> fails
-# silently in the browser. Inlining bypasses the HTTP route entirely.
-_LOGO_BYTES = (
-    Path(__file__).parent / "static" / "StarwoodCapitalLogo.svg"
-).read_bytes()
-STARWOOD_LOGO_DATA_URI = (
-    f"data:image/svg+xml;base64,{base64.b64encode(_LOGO_BYTES).decode('ascii')}"
-)
 # Conservative corporate navy palette. Adjust to the official brand guide when
 # available — these three variables drive every branded accent in the app.
 BRAND_NAVY = "#0F2544"
@@ -133,6 +125,58 @@ def _configure_page() -> None:
             .sw-caption {{
                 color: #6B6B6B; font-size: 12px;
             }}
+            /* Upload result cards: chevron toggle + dismiss × sit in the
+               two narrow right-hand columns of the card's header row. Both
+               buttons use type="secondary" (Streamlit 1.40 doesn't support
+               "tertiary"); the chevron is overridden below with transparent
+               ghost styling to match the sidebar collapse chevron, and the
+               × keeps secondary behavior (neutral at rest, red on hover,
+               matching the upload button). The st-key-toggle_* and
+               st-key-close_* classes come from the button's `key` argument. */
+            section[data-testid="stSidebar"] div[class*="st-key-upload_card_"] .stButton > button {{
+                padding: 0 0.3rem !important;
+                min-width: 0 !important;
+                min-height: 1.5rem !important;
+                height: 1.5rem !important;
+                line-height: 1 !important;
+                font-size: 13px !important;
+                font-weight: 600 !important;
+            }}
+            section[data-testid="stSidebar"] div[class*="st-key-upload_card_"]
+                [data-testid="stHorizontalBlock"] {{
+                gap: 0.2rem !important;
+            }}
+            /* Chevron: strip border + background so it reads as a minimal
+               glyph, like the sidebar's own collapse chevron. */
+            section[data-testid="stSidebar"] div[class*="st-key-toggle_"] button {{
+                background: transparent !important;
+                border: none !important;
+                box-shadow: none !important;
+                color: #6B6B6B !important;
+            }}
+            section[data-testid="stSidebar"] div[class*="st-key-toggle_"] button:hover {{
+                background: rgba(15, 37, 68, 0.06) !important;
+                color: {BRAND_NAVY} !important;
+                border: none !important;
+            }}
+            section[data-testid="stSidebar"] div[class*="st-key-toggle_"] button:focus,
+            section[data-testid="stSidebar"] div[class*="st-key-toggle_"] button:active {{
+                box-shadow: none !important;
+                outline: none !important;
+            }}
+            .sw-card-label {{
+                font-size: 10px;
+                font-weight: 600;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+            }}
+            .sw-card-filename {{
+                font-size: 13px;
+                font-weight: 500;
+                color: {BRAND_NAVY};
+                word-break: break-word;
+                margin-top: 2px;
+            }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -143,7 +187,6 @@ def _render_header() -> None:
     st.markdown(
         f"""
         <div class="sw-header">
-            <img src="{STARWOOD_LOGO_DATA_URI}" height="48" alt="Starwood Capital" />
             <div class="sw-accent"></div>
             <h1>Offering Memorandum Map</h1>
         </div>
@@ -178,6 +221,11 @@ def load_properties() -> list[Property]:
 # Upload pipeline
 # ---------------------------------------------------------------------------
 
+# Concurrent per-file pipelines. Claude extraction is the dominant cost
+# (~10-30s per 100-page OM); 6 in-flight keeps wall time low without
+# bumping into Anthropic rate limits on typical paid tiers.
+_UPLOAD_WORKERS = 6
+
 
 def _find_duplicate(sha256: str) -> Optional[Property]:
     with get_session() as session:
@@ -210,9 +258,9 @@ def _process_upload(file) -> dict:
         return {
             "status": "skipped",
             "filename": filename,
-            "reason": (
-                f"duplicate of a file uploaded {existing.upload_timestamp:%Y-%m-%d}"
-            ),
+            "details": [
+                f"Duplicate of a file uploaded {existing.upload_timestamp:%Y-%m-%d}",
+            ],
         }
 
     try:
@@ -222,21 +270,25 @@ def _process_upload(file) -> dict:
         return {
             "status": "failed",
             "filename": filename,
-            "reason": f"extraction: {exc}",
+            "details": [f"Extraction: {exc}"],
         }
     except Exception as exc:
         logger.exception("Unexpected error extracting %s", filename)
         return {
             "status": "failed",
             "filename": filename,
-            "reason": f"unexpected: {exc}",
+            "details": [f"Unexpected: {exc}"],
         }
 
     try:
         blob_path = upload_pdf(data, sha256, filename)
     except Exception as exc:
         logger.exception("Blob upload failed for %s", filename)
-        return {"status": "failed", "filename": filename, "reason": f"blob: {exc}"}
+        return {
+            "status": "failed",
+            "filename": filename,
+            "details": [f"Blob upload: {exc}"],
+        }
 
     geo = _geocode_or_failed(extraction.address)
 
@@ -268,13 +320,52 @@ def _process_upload(file) -> dict:
         return {
             "status": "skipped",
             "filename": filename,
-            "reason": "raced with a concurrent duplicate upload",
+            "details": ["Raced with a concurrent duplicate upload"],
         }
     except Exception as exc:
         logger.exception("DB insert failed for %s", filename)
-        return {"status": "failed", "filename": filename, "reason": f"db: {exc}"}
+        return {
+            "status": "failed",
+            "filename": filename,
+            "details": [f"DB insert: {exc}"],
+        }
 
-    return {"status": "success", "filename": filename, "property_id": new_id}
+    return {
+        "status": "success",
+        "filename": filename,
+        "property_id": new_id,
+        "details": _success_details(new_id, extraction, geo),
+    }
+
+
+def _success_details(property_id: int, extraction, geo: GeocodeResult) -> list[str]:
+    lines: list[str] = [extraction.address or "No address extracted"]
+
+    metrics: list[str] = []
+    if extraction.building_type is not None:
+        metrics.append(extraction.building_type.value)
+    if extraction.square_footage:
+        metrics.append(f"{extraction.square_footage:,} sq ft")
+    if extraction.cap_rate is not None:
+        metrics.append(f"{extraction.cap_rate:.2f}% cap")
+    if extraction.valuation:
+        metrics.append(f"${extraction.valuation:,}")
+    if metrics:
+        lines.append(" · ".join(metrics))
+
+    if geo.latitude is not None and geo.longitude is not None:
+        lines.append(f"Geocoded: {geo.latitude:.4f}, {geo.longitude:.4f}")
+    elif geo.error:
+        lines.append(f"Geocode: {geo.error}")
+
+    if extraction.needs_review or geo.needs_review:
+        lines.append(
+            "Flagged for review"
+            + (f": {extraction.review_reason}" if extraction.review_reason else "")
+        )
+
+    lines.append(f"Property #{property_id}")
+    return lines
 
 
 def _geocode_or_failed(address: Optional[str]) -> GeocodeResult:
@@ -332,6 +423,7 @@ def _render_sidebar() -> None:
     with st.sidebar:
         st.subheader("Upload OMs")
         _render_uploader()
+        _render_upload_cards()
 
 
 def _render_uploader() -> None:
@@ -362,17 +454,31 @@ def _render_uploader() -> None:
 def _run_batch(files: list) -> None:
     with st.status(f"Processing {len(files)} file(s)…", expanded=True) as status:
         summary = {"success": 0, "skipped": 0, "failed": 0}
-        for f in files:
-            st.write(f"**{f.name}**")
-            result = _process_upload(f)
-            summary[result["status"]] += 1
-            if result["status"] == "success":
-                st.write("- imported")
-            elif result["status"] == "skipped":
-                st.write(f"- skipped: {result['reason']}")
-                st.toast(f"Skipped {f.name}: {result['reason']}", icon="⚠")
-            else:
-                st.write(f"- failed: {result['reason']}")
+        with ThreadPoolExecutor(max_workers=_UPLOAD_WORKERS) as pool:
+            futures = [pool.submit(_process_upload, f) for f in files]
+            try:
+                for future in as_completed(futures):
+                    result = future.result()
+                    summary[result["status"]] += 1
+                    name = result["filename"]
+                    st.write(f"**{name}**")
+                    label = _STATUS_LABELS.get(
+                        result["status"], (result["status"].title(),)
+                    )[0]
+                    st.write(f"- {label}")
+                    for detail in result.get("details", []):
+                        st.write(f"  - {detail}")
+                    if result["status"] == "skipped":
+                        first = (result.get("details") or ["duplicate"])[0]
+                        st.toast(f"Skipped {name}: {first}", icon="⚠")
+                    _push_upload_card(result)
+            except GeocoderConfigError:
+                # Config error affects every file; cancel anything not yet
+                # started so we don't burn Claude calls on doomed uploads.
+                # (In-flight futures can't be cancelled and will finish.)
+                for pending in futures:
+                    pending.cancel()
+                raise
         status.update(
             label=(
                 f"Done — {summary['success']} imported, "
@@ -380,6 +486,106 @@ def _run_batch(files: list) -> None:
             ),
             state="complete",
         )
+
+
+# ---------------------------------------------------------------------------
+# Upload result cards (sidebar queue, dismiss-on-X)
+# ---------------------------------------------------------------------------
+
+# Newest-first queue of finished uploads. Entries persist across reruns until
+# the user clicks the × on a card; the × is CSS-hidden until the card is
+# hovered (or focus enters via keyboard), keeping the sidebar uncluttered.
+_UPLOAD_CARDS_KEY = "upload_cards"
+
+_STATUS_LABELS = {
+    "success": ("Imported", "#2E8B57"),
+    "skipped": ("Skipped", "#B8860B"),
+    "failed": ("Failed", "#B22222"),
+}
+
+
+def _push_upload_card(result: dict) -> None:
+    cards = st.session_state.setdefault(_UPLOAD_CARDS_KEY, [])
+    cards.insert(
+        0,
+        {
+            "id": uuid.uuid4().hex,
+            "filename": result["filename"],
+            "status": result["status"],
+            "details": list(result.get("details", [])),
+            "expanded": False,
+        },
+    )
+
+
+def _dismiss_upload_card(card_id: str) -> None:
+    cards = st.session_state.get(_UPLOAD_CARDS_KEY, [])
+    st.session_state[_UPLOAD_CARDS_KEY] = [c for c in cards if c["id"] != card_id]
+
+
+def _toggle_upload_card(card_id: str) -> None:
+    for card in st.session_state.get(_UPLOAD_CARDS_KEY, []):
+        if card["id"] == card_id:
+            card["expanded"] = not card.get("expanded", False)
+            return
+
+
+@st.fragment
+def _render_upload_cards() -> None:
+    """
+    Fragment-scoped so dismissing a card reruns only this block — the map and
+    summary table on the main page are not re-executed. Streamlit reruns a
+    fragment whenever a widget inside it is interacted with; the explicit
+    ``st.rerun(scope="fragment")`` below is needed because the button we pressed
+    is already rendered when the dismiss handler fires, so we force one more
+    fragment-only pass to redraw without the removed card.
+    """
+    cards = st.session_state.get(_UPLOAD_CARDS_KEY, [])
+    if not cards:
+        return
+    for card in list(cards):
+        _render_upload_card(card)
+
+
+def _render_upload_card(card: dict) -> None:
+    label, color = _STATUS_LABELS.get(card["status"], (card["status"], "#6B6B6B"))
+    expanded = bool(card.get("expanded", False))
+    with st.container(border=True, key=f"upload_card_{card['id']}"):
+        head, chevron_col, close_col = st.columns(
+            [6, 1, 1], vertical_alignment="top"
+        )
+        with head:
+            st.markdown(
+                f'<div class="sw-card-label" style="color:{color};">{label}</div>'
+                f'<div class="sw-card-filename">{html.escape(card["filename"])}</div>',
+                unsafe_allow_html=True,
+            )
+        with chevron_col:
+            if st.button(
+                "▾" if expanded else "▴",
+                key=f"toggle_{card['id']}",
+                help="Hide details" if expanded else "Show details",
+                type="secondary",
+            ):
+                _toggle_upload_card(card["id"])
+                st.rerun(scope="fragment")
+        with close_col:
+            if st.button(
+                "×",
+                key=f"close_{card['id']}",
+                help="Dismiss",
+                type="secondary",
+            ):
+                _dismiss_upload_card(card["id"])
+                st.rerun(scope="fragment")
+        if expanded and card.get("details"):
+            st.markdown(
+                "".join(
+                    f'<div class="sw-caption">• {html.escape(d)}</div>'
+                    for d in card["details"]
+                ),
+                unsafe_allow_html=True,
+            )
 
 
 # ---------------------------------------------------------------------------

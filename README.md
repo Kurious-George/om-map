@@ -1,6 +1,6 @@
-# Starwood OM Map
+# OM Map
 
-Internal Streamlit app for Starwood Capital. Upload real estate Offering
+Streamlit app for uploading real estate Offering
 Memorandum PDFs; Claude extracts the key property fields, Google Maps
 geocodes the address, and every property appears as a color-coded pin on a
 shared world map.
@@ -20,10 +20,22 @@ shared world map.
 
 ## Quick start — local dev (Docker Compose)
 
+Tested on **Ubuntu 22.04 / 24.04**. Should work on any recent Debian-based distro.
+
 ### Prerequisites
 
-- **Docker Desktop**
-- **Azure CLI:** `winget install Microsoft.AzureCLI` (close + reopen PowerShell)
+- **Docker Engine + Compose plugin.** Install via Docker's official apt repo:
+  https://docs.docker.com/engine/install/ubuntu/. Then add yourself to the
+  `docker` group so you don't need `sudo` for every command:
+  ```bash
+  sudo usermod -aG docker $USER
+  newgrp docker        # or log out and back in
+  ```
+- **Azure CLI** (and `jq`, used by the setup script below):
+  ```bash
+  curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+  sudo apt-get install -y jq
+  ```
 - **An Azure subscription** — free tier is sufficient: https://azure.microsoft.com/free
 - **Anthropic API key:** https://console.anthropic.com
 - **Google Maps API key(s)** with the **Geocoding API** and **Street View
@@ -32,45 +44,59 @@ shared world map.
 
 ### 1. Provision the Azure resources
 
-PowerShell, step by step. Customize the first three variables.
+Bash, step by step. Customize the first three variables.
 
-```powershell
+```bash
 az login
 # If you have multiple subscriptions, pin the one you want to use:
 # az account set --subscription "<SubscriptionId>"
 
-$RG        = "starwood-om-dev"
-$LOCATION  = "eastus"
-$STORAGE   = "swomdev$(Get-Random -Maximum 99999)"   # must be globally unique
-$CONTAINER = "om-pdfs"
+RG="om-dev"
+LOCATION="eastus"
+STORAGE="omdev$RANDOM"        # must be globally unique
+CONTAINER="om-pdfs"
 
-az group create -n $RG -l $LOCATION
+az group create -n "$RG" -l "$LOCATION"
 
-az storage account create `
-  --name $STORAGE `
-  --resource-group $RG `
-  --location $LOCATION `
-  --sku Standard_LRS --kind StorageV2 `
+az storage account create \
+  --name "$STORAGE" \
+  --resource-group "$RG" \
+  --location "$LOCATION" \
+  --sku Standard_LRS --kind StorageV2 \
   --allow-blob-public-access false
 
-az storage container create `
-  --account-name $STORAGE `
-  --name $CONTAINER `
+az storage container create \
+  --account-name "$STORAGE" \
+  --name "$CONTAINER" \
   --auth-mode login
 
 # Create a service principal scoped to the container. The output JSON has
-# the three values you need for .env (appId, password, tenant).
-$ACCOUNT_ID = az storage account show -n $STORAGE -g $RG --query id -o tsv
-$SCOPE      = "$ACCOUNT_ID/blobServices/default/containers/$CONTAINER"
-az ad sp create-for-rbac `
-  --name "starwood-om-dev-sp" `
-  --role "Storage Blob Data Contributor" `
-  --scopes $SCOPE
+# the three values you need for .env (appId, password, tenant). Capture the
+# appId from the output — the next command needs it.
+ACCOUNT_ID=$(az storage account show -n "$STORAGE" -g "$RG" --query id -o tsv)
+SCOPE="$ACCOUNT_ID/blobServices/default/containers/$CONTAINER"
+SP_JSON=$(az ad sp create-for-rbac \
+  --name "om-dev-sp" \
+  --role "Storage Blob Data Contributor" \
+  --scopes "$SCOPE")
+echo "$SP_JSON"
+APP_ID=$(echo "$SP_JSON" | jq -r .appId)
+
+# Additionally grant "Storage Blob Delegator" at the **storage account**
+# scope. The app uses DefaultAzureCredential (OAuth, no account key), so PDF
+# links are minted as user-delegation SAS URLs. Issuing a user delegation
+# key requires this role, and Azure refuses if it's scoped to a single
+# container — it must live at the account.
+# Without it: uploads still work, but every PDF link silently 403s.
+az role assignment create \
+  --assignee "$APP_ID" \
+  --role "Storage Blob Delegator" \
+  --scope "$ACCOUNT_ID"
 ```
 
 ### 2. Configure `.env`
 
-```powershell
+```bash
 cp .env.example .env
 ```
 
@@ -86,14 +112,9 @@ Fill in:
 
 Leave `DATABASE_URL` as the default; compose already points it at the `db` service.
 
-### 3. (Optional) drop in the Starwood logo
+### 3. Bring everything up
 
-Save the Starwood SVG logo as `static/StarwoodCapitalLogo.svg`. The app
-renders a text header if the file is missing, so this step is optional.
-
-### 4. Bring everything up
-
-```powershell
+```bash
 docker compose up --build -d
 docker compose run --rm app alembic upgrade head
 ```
@@ -107,7 +128,7 @@ Open http://localhost:8501.
 The compose file mounts your working tree into the container, so `.py` edits
 take effect on Streamlit's next rerun with no rebuild.
 
-```powershell
+```bash
 docker compose logs -f app          # tail logs
 docker compose restart app          # force-reload after module-level changes
 docker compose down                 # stop, keep DB data
@@ -146,8 +167,7 @@ geocoder.py        Google Maps geocoding with match-quality review flags
 streetview.py      Google Street View Static URL builder (popup images)
 map_builder.py     Folium map + MarkerCluster + review-queue filter
 migrations/        Alembic environment + versioned migrations (raw SQL)
-static/            Served by Streamlit at /app/static/<filename>
-.streamlit/        Streamlit config (static serving enabled)
+.streamlit/        Streamlit config
 Dockerfile         Non-root Python 3.12 slim image with health check
 docker-compose.yml Local dev stack (app + postgres)
 ```
@@ -173,14 +193,30 @@ docker-compose.yml Local dev stack (app + postgres)
 
 ## Troubleshooting
 
-- **`The "HOME" variable is not set`** (compose warning) — You're on
-  Windows and `$HOME` isn't an env var. The compose file now uses
-  `${USERPROFILE}` where it's needed; if you still see this after pulling,
-  re-check `docker-compose.yml`.
+- **`permission denied while trying to connect to the Docker daemon socket`** —
+  your user isn't in the `docker` group yet. Run
+  `sudo usermod -aG docker $USER` and then `newgrp docker` (or log out and
+  back in). Verify with `docker info`.
 - **`DefaultAzureCredential failed`** at blob upload — `.env` is missing
   or has empty `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` / `AZURE_TENANT_ID`.
-  Run `docker compose exec app env | findstr AZURE` to confirm they're
+  Run `docker compose exec app env | grep AZURE` to confirm they're
   making it into the container.
+- **PDF links empty in the table / popups, app logs show `This request is
+  not authorized to perform this operation using this permission` (HTTP 403)
+  on `get_user_delegation_key`** — the service principal has
+  `Storage Blob Data Contributor` (uploads work) but is missing
+  `Storage Blob Delegator` at the **storage account** scope, which is
+  required to mint user-delegation SAS URLs. Fix with:
+  ```bash
+  set -a; source .env; set +a
+  RG="om-dev"     # whatever resource group you used in step 1
+  ACCOUNT_ID=$(az storage account show -n "$AZURE_STORAGE_ACCOUNT" -g "$RG" --query id -o tsv)
+  az role assignment create \
+    --assignee "$AZURE_CLIENT_ID" \
+    --role "Storage Blob Delegator" \
+    --scope "$ACCOUNT_ID"
+  docker compose restart app
+  ```
 - **`invalid input value for enum building_type`** — the ORM enum serialization
   drifted from the DB enum values. `db.py` uses
   `values_callable=lambda e: [m.value for m in e]` on each Enum column; if
@@ -195,6 +231,9 @@ docker-compose.yml Local dev stack (app + postgres)
   SQLAlchemy's enum event machinery, which has repeatedly double-fired
   CREATE TYPE across versions. If you add future migrations, prefer
   `op.execute` for enum changes too.
+- **Port 8501 already in use** — check what's holding it with
+  `sudo ss -ltnp 'sport = :8501'`. Either stop the other process or change
+  the host-side port in `docker-compose.yml`.
 
 ---
 
