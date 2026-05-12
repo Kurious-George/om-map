@@ -434,7 +434,9 @@ def _render_uploader() -> None:
             accept_multiple_files=True,
             label_visibility="collapsed",
         )
-        submitted = st.form_submit_button("Upload and process", use_container_width=True)
+        submitted = st.form_submit_button(
+            "Upload and process", use_container_width=True
+        )
 
     if not submitted or not uploaded:
         return
@@ -609,10 +611,7 @@ def _render_review_row(prop: Property) -> None:
         left, right = st.columns([5, 1])
         with left:
             st.markdown(f"**{prop.address or '(no address extracted)'}**")
-            meta = (
-                f"{prop.filename} · uploaded "
-                f"{prop.upload_timestamp:%Y-%m-%d %H:%M}"
-            )
+            meta = f"{prop.filename} · uploaded {prop.upload_timestamp:%Y-%m-%d %H:%M}"
             st.markdown(f'<div class="sw-caption">{meta}</div>', unsafe_allow_html=True)
             reasons: list[str] = []
             if prop.extraction_error:
@@ -627,7 +626,9 @@ def _render_review_row(prop: Property) -> None:
                     unsafe_allow_html=True,
                 )
         with right:
-            if st.button("Reviewed", key=f"review_ok_{prop.id}", use_container_width=True):
+            if st.button(
+                "Reviewed", key=f"review_ok_{prop.id}", use_container_width=True
+            ):
                 _mark_reviewed(prop.id)
                 st.rerun()
             if st.button(
