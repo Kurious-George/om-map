@@ -31,9 +31,10 @@ Tested on **Ubuntu 22.04 / 24.04**. Should work on any recent Debian-based distr
   sudo usermod -aG docker $USER
   newgrp docker        # or log out and back in
   ```
-- **Azure CLI:**
+- **Azure CLI** (and `jq`, used by the setup script below):
   ```bash
   curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+  sudo apt-get install -y jq
   ```
 - **An Azure subscription** — free tier is sufficient: https://azure.microsoft.com/free
 - **Anthropic API key:** https://console.anthropic.com
@@ -70,13 +71,27 @@ az storage container create \
   --auth-mode login
 
 # Create a service principal scoped to the container. The output JSON has
-# the three values you need for .env (appId, password, tenant).
+# the three values you need for .env (appId, password, tenant). Capture the
+# appId from the output — the next command needs it.
 ACCOUNT_ID=$(az storage account show -n "$STORAGE" -g "$RG" --query id -o tsv)
 SCOPE="$ACCOUNT_ID/blobServices/default/containers/$CONTAINER"
-az ad sp create-for-rbac \
+SP_JSON=$(az ad sp create-for-rbac \
   --name "om-dev-sp" \
   --role "Storage Blob Data Contributor" \
-  --scopes "$SCOPE"
+  --scopes "$SCOPE")
+echo "$SP_JSON"
+APP_ID=$(echo "$SP_JSON" | jq -r .appId)
+
+# Additionally grant "Storage Blob Delegator" at the **storage account**
+# scope. The app uses DefaultAzureCredential (OAuth, no account key), so PDF
+# links are minted as user-delegation SAS URLs. Issuing a user delegation
+# key requires this role, and Azure refuses if it's scoped to a single
+# container — it must live at the account.
+# Without it: uploads still work, but every PDF link silently 403s.
+az role assignment create \
+  --assignee "$APP_ID" \
+  --role "Storage Blob Delegator" \
+  --scope "$ACCOUNT_ID"
 ```
 
 ### 2. Configure `.env`
@@ -186,6 +201,22 @@ docker-compose.yml Local dev stack (app + postgres)
   or has empty `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` / `AZURE_TENANT_ID`.
   Run `docker compose exec app env | grep AZURE` to confirm they're
   making it into the container.
+- **PDF links empty in the table / popups, app logs show `This request is
+  not authorized to perform this operation using this permission` (HTTP 403)
+  on `get_user_delegation_key`** — the service principal has
+  `Storage Blob Data Contributor` (uploads work) but is missing
+  `Storage Blob Delegator` at the **storage account** scope, which is
+  required to mint user-delegation SAS URLs. Fix with:
+  ```bash
+  set -a; source .env; set +a
+  RG="om-dev"     # whatever resource group you used in step 1
+  ACCOUNT_ID=$(az storage account show -n "$AZURE_STORAGE_ACCOUNT" -g "$RG" --query id -o tsv)
+  az role assignment create \
+    --assignee "$AZURE_CLIENT_ID" \
+    --role "Storage Blob Delegator" \
+    --scope "$ACCOUNT_ID"
+  docker compose restart app
+  ```
 - **`invalid input value for enum building_type`** — the ORM enum serialization
   drifted from the DB enum values. `db.py` uses
   `values_callable=lambda e: [m.value for m in e]` on each Enum column; if
