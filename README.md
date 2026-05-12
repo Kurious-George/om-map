@@ -5,7 +5,7 @@ Memorandum PDFs; Claude extracts the key property fields, Google Maps
 geocodes the address, and every property appears as a color-coded pin on a
 shared world map.
 
-[![Watch the video](https://youtube.com)](https://youtu.be/DrqSYGGK9_c)
+<img width="795" height="395" alt="om-map-preview" src="https://github.com/user-attachments/assets/9ff4234f-da17-423b-960d-2f0c983bf49f" />
 
 ## Stack
 
