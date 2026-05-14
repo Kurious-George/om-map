@@ -1,5 +1,5 @@
 """
-Database layer for the Starwood OM Map app.
+Database layer for the OM Map app.
 
 Responsibilities:
   - Declare the `properties` table (single-table schema for v1).
