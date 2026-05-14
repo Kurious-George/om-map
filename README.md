@@ -1,4 +1,4 @@
-# OM Map
+# Offering Memorandum Map
 
 Streamlit app for uploading real estate Offering
 Memorandum PDFs; Claude extracts the key property fields, Google Maps
