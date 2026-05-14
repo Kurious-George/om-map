@@ -1,5 +1,5 @@
 """
-Streamlit entry point for the Starwood OM Map.
+Streamlit entry point for the OM Map.
 
 Flow:
   - Sidebar: upload widget.
@@ -60,8 +60,7 @@ logger = logging.getLogger(__name__)
 # Branding
 # ---------------------------------------------------------------------------
 
-# Conservative corporate navy palette. Adjust to the official brand guide when
-# available — these three variables drive every branded accent in the app.
+# Navy palette.
 BRAND_NAVY = "#0F2544"
 BRAND_ACCENT = "#C9A449"
 BRAND_LIGHT = "#F5F3EF"
@@ -74,7 +73,7 @@ BRAND_LIGHT = "#F5F3EF"
 
 def _configure_page() -> None:
     st.set_page_config(
-        page_title="Starwood OM Map",
+        page_title="OM Map",
         layout="wide",
         initial_sidebar_state="expanded",
     )
